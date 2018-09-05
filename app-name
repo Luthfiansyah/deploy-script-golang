@@ -1,0 +1,104 @@
+#!/bin/bash
+#### BEGIN INIT INFO
+# Provides:          app-name
+# Required-Start:    $local_fs $network $named $time $syslog
+# Required-Stop:     $local_fs $network $named $time $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Description:       This is a init script for running ini_wrappert_service_backend as a daemon
+### END INIT INFO
+
+PROG="app-name"
+PROG_PATH="/home/reza/go/src/github.com/app-name" # example
+PID_PATH="/home/reza/go/src/github.com/app-name"  # example
+LOGFILE="/home/reza/app-name.log" # example
+RUNAS=reza # example
+ARGUMENT="-c config.toml" # example
+
+#!/bin/bash
+#
+# chkconfig: 35 95 05
+# description: golang application.
+
+# Run at startup: sudo chkconfig <service> on ubuntu 16.04 >=
+# Run at startup: sudo update-rc.d <service> defaults on ubuntu 14.00 >=
+
+# Start the service
+run() {
+  echo -n $"Starting $PROG:"
+  # nohup ./$PROG -c config.toml > /var/log/$app.log 2> /var/log/$app.err < /dev/null &
+  su - $RUNAS -c "cd $PROG_PATH; nohup ./$PROG $ARGUMENT >> $LOGFILE 2>&1 & echo \$! > $PID_PATH/$PROG.pid" &
+        echo "$PROG started "
+  sleep 1
+
+  status $PROG > /dev/null
+  # If application is running
+  if [[ $? -eq 0 ]]; then
+    # Store PID in lock file
+    echo $! > /var/lock/subsys/$PROG
+    success
+    echo
+  else
+    failure
+    echo
+  fi
+}
+
+start() {
+    if [ -e "$PID_PATH/$PROG.pid" ]; then
+        ## Program is running, exit with error.
+        #echo "$PROG is already started"
+        echo "Error! $PROG is currently running!" 1>&2
+        return 1
+    else
+        ## Change from /dev/null to something like /var/log/$PROG if you want to save output.
+        ### cd $PROG_PATH; nohup ./$PROG $ARGUMENT >> $LOGFILE &
+        #echo $! > $PID_PATH/$PROG.pid
+        #su - $RUNAS -c "cd $PROG_PATH; nohup ./$PROG $ARGUMENT >> $LOGFILE & echo \$! > $PID_PATH/$PROG.pid" &
+        su - $RUNAS -c "cd $PROG_PATH; nohup ./$PROG $ARGUMENT >> $LOGFILE 2>&1 & echo \$! > $PID_PATH/$PROG.pid" &
+        echo "$PROG started "
+    fi
+}
+
+stop() {
+    if [ -e "$PID_PATH/$PROG.pid" ]; then
+        ## Program is running, so stop it
+        sudo kill $(cat $PID_PATH/$PROG.pid)
+        rm -rf "$PID_PATH/$PROG.pid"
+        echo "pid removed"
+        echo "$PROG stopped"
+    else
+        ## Program is not running, exit with error.
+        echo "$PROG is already stopped"
+        #echo "Error! $PROG not started!" 1>&2
+        #exit 1
+    fi
+}
+
+## Check to see if we are running as root first.
+## Found at http://www.cyberciti.biz/tips/shell-root-user-check-script.html
+if [ "$(id -u)" != "0" ]; then
+    echo "This script must be run as root" 1>&2
+    exit 1
+fi
+
+case "$1" in
+    start)
+        start
+        exit 0
+    ;;
+    stop)
+        stop
+        exit 0
+    ;;
+    reload|restart|force-reload)
+        stop
+        wait 3
+        start
+        exit 0
+    ;;
+    **)
+        echo "Usage: $0 {start|stop|reload}" 1>&2
+        exit 1
+    ;;
+esac
